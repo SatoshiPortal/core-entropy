@@ -1,18 +1,27 @@
 # core-entropy
 
 Bitcoin Core's RNG, extracted as a standalone C++ library with Dart FFI
-bindings, configured to **panic rather than fall back**.
+bindings.
 
-Prototype. Not wired into any product.
+Prototype.
 
 ## Why
 
-Bull Bitcoin Mobile currently derives wallet seeds from `bdk-ffi`'s
-`Mnemonic::new`, which calls `rand::thread_rng()` — a userspace ChaCha12
-CSPRNG seeded from the OS — under an upstream comment reading
-`TODO 4: I DON'T KNOW IF THIS IS A DECENT WAY TO GENERATE ENTROPY PLEASE CONFIRM`.
-This explores replacing that with the RNG from the most-reviewed codebase in
-Bitcoin, on terms a Core developer can audit.
+Entropy is the foundation of Bitcoin key security. Every private key, every
+address, every signature derives from a single initial draw — and unlike most
+cryptographic failures, a weak one is invisible. The keys look correct, the
+wallet works, and the funds are gone whenever someone else notices.
+
+Bitcoin Core's RNG is the most reviewed code of its kind in the ecosystem.
+Reusing it means inheriting that review rather than re-litigating the same
+decisions in yet another implementation. That only works if the code is
+genuinely the same code, which is why `core/` is vendored byte-identical and
+machine-verifiable rather than adapted, ported, or reimplemented — a
+reimplementation inherits none of the scrutiny that made the original worth
+reusing.
+
+This is not specific to any wallet. Any project that needs entropy it can
+defend should be able to take it.
 
 ## Provenance
 
