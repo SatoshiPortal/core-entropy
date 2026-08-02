@@ -36,14 +36,6 @@ void core_entropy_get_strong(uint8_t* out, size_t len)
     }
 }
 
-void core_entropy_get_bytes(uint8_t* out, size_t len)
-{
-    for (size_t off = 0; off < len; off += kMaxPerCall) {
-        const size_t n = (len - off) < kMaxPerCall ? (len - off) : kMaxPerCall;
-        GetRandBytes(Span<unsigned char>{out + off, n});
-    }
-}
-
 void core_entropy_add_entropy(const uint8_t* data, size_t len)
 {
     if (len == 0) return;

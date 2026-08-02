@@ -30,8 +30,6 @@ class CoreEntropy {
   CoreEntropy._(DynamicLibrary lib)
       : _getStrong = lib.lookupFunction<_FillNative, _FillDart>(
             'core_entropy_get_strong'),
-        _getBytes = lib.lookupFunction<_FillNative, _FillDart>(
-            'core_entropy_get_bytes'),
         _addEntropy =
             lib.lookupFunction<_AddNative, _AddDart>('core_entropy_add_entropy'),
         _addEvent = lib.lookupFunction<_EventNative, _EventDart>(
@@ -46,7 +44,6 @@ class CoreEntropy {
             'core_entropy_os_block_size');
 
   final _FillDart _getStrong;
-  final _FillDart _getBytes;
   final _AddDart _addEntropy;
   final _EventDart _addEvent;
   final _VoidDart _reseed;
@@ -93,11 +90,9 @@ class CoreEntropy {
   /// Core's `Random_SanityCheck()`.
   bool sanityCheck() => _sanityCheck() == 1;
 
-  /// `GetStrongRandBytes()` — slow seeding, for key material.
+  /// `GetStrongRandBytes()` — slow seeding. The only generator this binding
+  /// exposes; Core's faster `GetRandBytes()` is deliberately not bound.
   Uint8List strongBytes(int length) => _fill(length, _getStrong);
-
-  /// `GetRandBytes()` — fast path, for non-key uses.
-  Uint8List bytes(int length) => _fill(length, _getBytes);
 
   /// Mix caller-supplied material into Core's pool.
   ///

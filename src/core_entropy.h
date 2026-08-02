@@ -22,9 +22,12 @@ extern "C" {
 // issued here as successive 32-byte draws, each with its own SLOW reseed.
 void core_entropy_get_strong(uint8_t* out, size_t len);
 
-// Fill `out` from Core's GetRandBytes() (fast path, no slow reseeding).
-// Same 32-byte chunking as above.
-void core_entropy_get_bytes(uint8_t* out, size_t len);
+// There is deliberately no binding for Core's GetRandBytes(). That is Core's
+// FAST path: the same ChaCha20 state without the slow reseed. It is not weak,
+// but it is weaker, and a library that exists to produce key material should
+// not offer a second function that a caller might reach for by mistake.
+// Callers who want cheap non-cryptographic randomness should not be reaching
+// into an entropy library for it.
 
 // ---------------------------------------------------------------------------
 // Additional entropy input

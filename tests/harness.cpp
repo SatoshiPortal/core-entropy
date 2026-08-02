@@ -212,7 +212,7 @@ int main(int argc, char** argv)
 
     // -----------------------------------------------------------------------
     std::printf("\nTier 2 - statistical (see note below)\n");
-    run_tier2([]{ std::vector<uint8_t> v(1 << 18); core_entropy_get_bytes(v.data(), v.size()); return v; }());
+    run_tier2([]{ std::vector<uint8_t> v(1 << 18); core_entropy_get_strong(v.data(), v.size()); return v; }());
 
     // -----------------------------------------------------------------------
     std::printf("\nTier 3 - provenance\n");

@@ -36,6 +36,33 @@ else
   fail=1
 fi
 
+printf '  [T3] %-38s ' "build fails with no OS source"
+cat > "$ROOT/build/_guard.cpp" <<'EOF'
+#undef __APPLE__
+#undef __linux__
+#undef __ANDROID__
+#include <bitcoin-build-config.h>
+EOF
+# The compiler is expected to fail here, so capture its output rather than
+# piping: `set -o pipefail` would otherwise report the intended failure as a
+# test failure.
+guard_out=$(c++ -std=c++20 -Ishim -Icore -Isrc -fsyntax-only "$ROOT/build/_guard.cpp" 2>&1 || true)
+if printf '%s' "$guard_out" | grep -q 'No OS entropy source selected'; then
+  echo "PASS   #error fires; /dev/urandom branch unreachable"
+else
+  echo "FAIL   build config would fall through to Core's #else"
+  fail=1
+fi
+rm -f "$ROOT/build/_guard.cpp"
+
+printf '  [T3] %-38s ' "only the strong generator is exported"
+if nm -gU build/libcore_entropy.dylib 2>/dev/null | grep -q '_core_entropy_get_bytes'; then
+  echo "FAIL   Core's FAST path (GetRandBytes) is reachable from the ABI"
+  fail=1
+else
+  echo "PASS   GetRandBytes not bound; GetStrongRandBytes only"
+fi
+
 printf '  [T3] %-38s ' "no /dev/urandom string in binary"
 if strings build/libcore_entropy.* 2>/dev/null | grep -q '/dev/urandom'; then
   echo "WARN   GetDevURandom survived dead-stripping (unreachable, but present)"

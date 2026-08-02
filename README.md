@@ -140,12 +140,29 @@ actually claims. `scripts/provenance_test.sh` interposes the entropy syscall,
 forces it to fail, and requires SIGABRT:
 
 ```
-  [T3] baseline succeeds                 PASS
-  [T3] aborts when OS source fails       PASS   SIGABRT from RandFailure()
-  [T3] no /dev/urandom string in binary  PASS   GetDevURandom stripped
+  [T3] baseline succeeds                      PASS
+  [T3] aborts when OS source fails            PASS   SIGABRT from RandFailure()
+  [T3] build fails with no OS source          PASS   #error fires; /dev/urandom branch unreachable
+  [T3] only the strong generator is exported  PASS   GetRandBytes not bound; GetStrongRandBytes only
+  [T3] no /dev/urandom string in binary       PASS   GetDevURandom stripped
 ```
 
-A build with a reachable fallback exits 0 here.
+A build with a reachable fallback exits 0 on the second check.
+
+## Strong or nothing
+
+There is one generator. `GetStrongRandBytes()` is the only thing the C ABI
+binds; Core's faster `GetRandBytes()` is deliberately left unexported, and a
+Tier 3 check fails the suite if it ever reappears in the symbol table. It is
+not weak — same ChaCha20 state, no slow reseed — but a library that exists to
+produce key material should not offer a second function a caller could reach
+for by mistake.
+
+Nothing in this repository generates entropy that is not strong. Every test,
+on every platform, draws from `GetStrongRandBytes()` and from nothing else.
+The suite contains no deliberately-weak generator, not even as a demonstration
+of what the statistical tests cannot see — see Tier 2 above for why that
+demonstration was removed rather than kept and relabelled.
 
 ## Build
 
