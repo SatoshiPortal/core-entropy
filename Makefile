@@ -28,7 +28,7 @@ CORE_SRC := \
   core/util/syserror.cpp \
   core/util/fs.cpp
 
-OWN_SRC  := src/core_entropy.cpp
+OWN_SRC  := src/core_entropy.cpp shim/android_getrandom.cpp shim/apple_getentropy.cpp
 SRC      := $(CORE_SRC) $(OWN_SRC)
 OBJ      := $(patsubst %.cpp,build/%.o,$(SRC))
 
@@ -41,7 +41,10 @@ else
   LDFLAGS += -shared -Wl,--gc-sections
 endif
 
-.PHONY: all lib test clean verify
+.PHONY: all lib test clean verify print-sources
+
+print-sources:
+	@echo $(SRC)
 all: lib
 
 lib: $(SHLIB)

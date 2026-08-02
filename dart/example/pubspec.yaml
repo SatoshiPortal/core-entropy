@@ -1,0 +1,12 @@
+name: core_entropy_example
+description: Runnable demonstration of core_entropy.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  core_entropy:
+    path: ../
+  bip39_mnemonic: ^4.0.1

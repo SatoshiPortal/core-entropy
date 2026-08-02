@@ -25,6 +25,24 @@
   #define HAVE_GETRANDOM 1
   #define CORE_ENTROPY_OS_SOURCE "getrandom(2)"
   #define CORE_ENTROPY_SOURCE_SELECTED 1
+
+  // bionic declares getrandom() with __INTRODUCED_IN(28), so Core's
+  // HAVE_GETRANDOM branch does not compile below API 28 even though the
+  // syscall has existed since API 23. Declaring it here (this header is
+  // included at random.cpp:6, before <sys/random.h> at line 38) lets Core's
+  // code compile untouched; shim/android_getrandom.cpp supplies the
+  // definition as a direct syscall.
+  //
+  // This is not a fallback. There is one code path, it is getrandom(2), and
+  // a failed syscall returns -1 so that Core calls RandFailure() -> abort().
+  #if defined(__ANDROID__) && __ANDROID_API__ < 28
+    #include <sys/types.h>
+    #ifdef __cplusplus
+extern "C"
+    #endif
+    ssize_t getrandom(void* __buffer, size_t __buffer_size, unsigned int __flags);
+    #define CORE_ENTROPY_ANDROID_GETRANDOM_SHIM 1
+  #endif
 #elif defined(__APPLE__)
   #define HAVE_GETENTROPY_RAND 1
   #define HAVE_SYSCTL 1

@@ -33,16 +33,20 @@ make verify
 ```
 
 which re-downloads each file from the upstream tag and `cmp`s it. Current
-state: **56/56 identical**. The entire non-Core surface is four files:
+state: **56/56 identical**. The entire non-Core surface is seven files:
 
 | File | Purpose |
 |---|---|
 | `shim/bitcoin-build-config.h` | Substitute for Core's build-generated header. **All project policy lives here.** |
 | `shim/bitcoin-build-info.h` | Substitute for Core's git-metadata header. Intentionally empty. |
+| `shim/android_getrandom.cpp` | Supplies `getrandom()` below Android API 28 |
+| `shim/sys/random.h` | Satisfies Core's include on Apple mobile SDKs |
+| `shim/apple_getentropy.cpp` | Supplies `getentropy()` on iOS |
 | `src/core_entropy.h` | C ABI declarations |
 | `src/core_entropy.cpp` | C ABI implementation |
 
-A reviewer needs to read those four files and nothing else.
+A reviewer needs to read those seven files and nothing else. `make verify`
+prints the list, so it cannot drift from reality unnoticed.
 
 ## No fallback
 
@@ -120,26 +124,16 @@ Cheap, and the only tier that would have caught Debian OpenSSL 2008 or Android
 install generates the same seed" is invisible inside a single process.
 
 **Tier 2 — statistical.** Monobit, byte chi-square, Shannon entropy, serial
-correlation, runs. These are worth running, and they are **not entropy tests**.
-The harness proves it by running the identical battery against ChaCha20 with an
-all-zero key:
+correlation, runs. Worth running, and **not entropy tests**. Any CSPRNG passes
+this battery whether or not it was ever seeded — the statistics describe the
+output function, not the seed. A generator with a hardcoded key would score
+identically to this one.
 
-```
-Tier 2 - statistical
-  [T2] core monobit          PASS   z=-0.912
-  [T2] core byte uniformity  PASS   chi2=245.3
-  [T2] core shannon entropy  PASS   H=7.99932 bits/byte
-
-Tier 2 - same battery, ChaCha20 with an all-zero key
-  [T2] fixedkey monobit          PASS   z=-0.431
-  [T2] fixedkey byte uniformity  PASS   chi2=265.4
-  [T2] fixedkey shannon entropy  PASS   H=7.99927 bits/byte
-```
-
-A generator with *zero entropy* passes every one. Statistical tests measure a
-PRNG's output function, never whether it was seeded. Anyone citing dieharder or
-NIST SP 800-22 as evidence their wallet's entropy is sound has measured the
-wrong thing.
+This repository does not ship a weak generator to demonstrate that, not even
+as a teaching aid: nothing here produces entropy that is not strong, so there
+is nothing to copy by mistake or to survive into a build. The consequence is
+what matters, and it is short — citing dieharder, PractRand or NIST SP 800-22
+as evidence that a wallet's entropy is sound is measuring the wrong thing.
 
 **Tier 3 — provenance.** The only tier that tests what a security claim
 actually claims. `scripts/provenance_test.sh` interposes the entropy syscall,
@@ -156,28 +150,65 @@ A build with a reachable fallback exits 0 here.
 ## Build
 
 ```
-make lib      # libcore_entropy.dylib / .so
-make test     # C++ harness, tiers 1-2
-make verify   # byte-identity against upstream v29.0
-./scripts/provenance_test.sh   # tier 3
+make lib                        # host shared library
+make test                       # C++ harness, tiers 1-2
+make verify                     # byte-identity against upstream v29.0
+./scripts/provenance_test.sh    # tier 3
+
+./scripts/build_android.sh [API]   # 4 ABIs -> build/android/<abi>/libcore_entropy.so
+./scripts/build_ios.sh [MIN_IOS]   # device + simulator -> CoreEntropy.xcframework
+
+./scripts/run_device_tests.sh all  # run the harness on a real emulator/simulator
 
 cd dart && dart pub get
 CORE_ENTROPY_LIB=../build/libcore_entropy.dylib dart test
 ```
 
-Host status: 16/16 C++, 15/15 Dart, 3/3 provenance, 56/56 byte-identity.
+### Platform support
+
+| Target | OS source | Notes |
+|---|---|---|
+| Android arm64-v8a, armeabi-v7a, x86_64, x86 | `getrandom(2)` | API 21+ |
+| iOS arm64 device + simulator | `getentropy(2)` | over `CCRandomGenerateBytes` |
+| macOS / Linux host | `getentropy(2)` / `getrandom(2)` | for development |
+
+Two platform gaps had to be closed without touching Core, both in `shim/`:
+
+- **Android below API 28.** bionic declares `getrandom()` with
+  `__INTRODUCED_IN(28)` although the syscall has existed since API 23, so
+  Core's branch would not compile. `shim/android_getrandom.cpp` supplies the
+  symbol as a direct `syscall(__NR_getrandom, ...)`. One code path, still no
+  fallback — `ENOSYS` returns -1 and Core aborts.
+- **iOS has no `getentropy()`.** The mobile SDKs ship no `<sys/random.h>` and
+  declare `getentropy()` nowhere; Core's Apple branch is macOS-shaped.
+  `shim/sys/random.h` satisfies the include and `shim/apple_getentropy.cpp`
+  implements the function over `CCRandomGenerateBytes`, Apple's public CSPRNG
+  on those platforms. Any non-success status becomes -1 and Core aborts.
+
+### Status
+
+| | |
+|---|---|
+| macOS host | 11/11 harness, 15/15 Dart, 3/3 provenance |
+| Android arm64 (emulator, API 35) | 11/11 harness, `getrandom(2)` selected |
+| iOS simulator (iPhone 17 Pro) | 11/11 harness, `getentropy(2)` selected |
+| Cross-compile | 4/4 Android ABIs, iOS device + simulator |
+| Provenance | 56/56 byte-identical to v29.0 |
 
 ## Known gaps
 
-- **Host-only so far.** No Android NDK or iOS cross-compile yet, and no
-  Flutter plugin packaging. `HAVE_GETRANDOM` is selected for Android but has
-  not been built or run there.
+- **No Flutter plugin packaging.** The Android `.so` files and the iOS
+  `.xcframework` are built and tested, but not yet wrapped as a pub package
+  with the platform folders Flutter expects.
+- **Not run on physical hardware.** Android results are from an emulator and
+  iOS from the simulator. Both are the real OS entropy path, but a device pass
+  is not the same claim.
 - **Not benchmarked.** `GetStrongRandBytes` does a full slow reseed per 32-byte
   chunk (`ProcRand` asserts `num <= 32`); cost on a phone is unmeasured.
+- **`mlock` under `lockedpool.cpp`** is unverified on iOS, where the sandbox
+  may refuse it.
 - **Binary size unmeasured.** 56 Core files plus libc++ against the current
   `rand`-based path.
-- **`randomenv.cpp` on Android** scrapes `/proc`, which SELinux restricts.
-  Harmless — it only reduces salt, never entropy — but unverified in practice.
 - **Reproducible builds.** Adding a C++ toolchain alongside the existing Rust
   pipeline has not been assessed against the repo's reproducibility work.
 

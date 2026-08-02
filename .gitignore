@@ -1,6 +1,8 @@
 build/
 .dart_tool/
 dart/.dart_tool/
+dart/example/.dart_tool/
 *.o
 *.dylib
 *.so
+*.a
