@@ -2,7 +2,17 @@ build/
 .dart_tool/
 dart/.dart_tool/
 dart/example/.dart_tool/
+flutter/example/.dart_tool/
+flutter/example/build/
+flutter/example/ios/Pods/
+flutter/example/ios/.symlinks/
+flutter/example/ios/Podfile.lock
+flutter/example/ios/Flutter/ephemeral/
+flutter/example/android/.gradle/
+flutter/android/.cxx/
+flutter/ios/CoreEntropy.xcframework/
 *.o
 *.dylib
 *.so
 *.a
+.DS_Store

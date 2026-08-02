@@ -70,15 +70,21 @@ class CoreEntropy {
       return existing;
     }
     _instancePath = resolved;
-    return _instance = CoreEntropy._(DynamicLibrary.open(resolved));
+    return _instance = CoreEntropy._(_load(resolved));
   }
 
+  static DynamicLibrary _load(String resolved) => DynamicLibrary.open(resolved);
+
   static String _defaultPath() {
-    if (Platform.isMacOS) return 'build/libcore_entropy.dylib';
+    // iOS ships the code as a dynamic framework vendored by the Flutter
+    // plugin; Android ships a plain .so in the APK. The desktop paths are for
+    // running the Dart tests against a `make lib` build.
+    if (Platform.isIOS) return 'CoreEntropy.framework/CoreEntropy';
     if (Platform.isAndroid) return 'libcore_entropy.so';
+    if (Platform.isMacOS) return 'build/libcore_entropy.dylib';
     if (Platform.isLinux) return 'build/libcore_entropy.so';
-    if (Platform.isIOS) return DynamicLibrary.process().toString();
-    throw UnsupportedError('no core_entropy build for ${Platform.operatingSystem}');
+    throw UnsupportedError(
+        'no core_entropy build for ${Platform.operatingSystem}');
   }
 
   /// The syscall this binary was compiled against, e.g. `getrandom(2)`.

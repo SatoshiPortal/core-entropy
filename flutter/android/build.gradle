@@ -1,0 +1,35 @@
+group 'com.satoshiportal.core_entropy'
+version '0.1.0'
+
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'com.android.tools.build:gradle:8.7.3' }
+}
+
+rootProject.allprojects {
+    repositories { google(); mavenCentral() }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'com.satoshiportal.core_entropy'
+    compileSdk 35
+
+    defaultConfig {
+        // Core's getrandom(2) branch is used at every level; below API 28 the
+        // symbol comes from shim/android_getrandom.cpp because bionic gates
+        // the libc wrapper. No /dev/urandom path at any API level.
+        minSdk 21
+        externalNativeBuild {
+            cmake { arguments '-DANDROID_STL=c++_shared' }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path '../src/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+}

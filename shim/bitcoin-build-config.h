@@ -46,8 +46,23 @@ extern "C"
 #elif defined(__APPLE__)
   #define HAVE_GETENTROPY_RAND 1
   #define HAVE_SYSCTL 1
-  #define CORE_ENTROPY_OS_SOURCE "getentropy(2)"
   #define CORE_ENTROPY_SOURCE_SELECTED 1
+
+  // CORE_ENTROPY_OS_SOURCE must name the call that actually executes, not the
+  // Core branch that was selected. macOS really does have getentropy(2); iOS,
+  // tvOS and watchOS do not, and there Core's getentropy() call binds to
+  // shim/apple_getentropy.cpp, which is CCRandomGenerateBytes.
+  //
+  // Reporting "getentropy(2)" on iOS was a live falsehood in this file: the
+  // string was set once for all of __APPLE__. A diagnostic that misnames the
+  // entropy source is worse than no diagnostic, because it is quoted.
+  #include <TargetConditionals.h>
+  #if TARGET_OS_OSX
+    #define CORE_ENTROPY_OS_SOURCE "getentropy(2)"
+  #else
+    #define CORE_ENTROPY_OS_SOURCE "CCRandomGenerateBytes"
+    #define CORE_ENTROPY_EXPECT_CCRANDOM 1
+  #endif
 #else
   #define CORE_ENTROPY_SOURCE_SELECTED 0
 #endif
@@ -81,17 +96,35 @@ extern "C"
 #endif
 
 // ---------------------------------------------------------------------------
-// Hardware acceleration
+// SHA-256 implementation selection
 //
-// Left undefined on purpose. USE_SSE4 / USE_AVX2 / USE_SHANI / ENABLE_ARM_SHANI
-// select hand-written SHA-256 assembly paths that live in separate translation
-// units Core builds conditionally. The generic C++ implementation in
-// crypto/sha256.cpp is used instead: fewer translation units, one code path on
-// every target, and no effect on entropy quality.
+// DISABLE_OPTIMIZED_SHA256 forces Core's portable C++ SHA-256 on every target.
 //
-// HAVE_GETCPUID is x86-only and irrelevant on arm64. Leaving it undefined also
-// disables Core's RDRAND/RDSEED seeding, which does not exist on ARM anyway.
+// This is defined rather than left to the defaults for a specific reason. An
+// earlier revision of this file simply left USE_SSE4 / USE_AVX2 / USE_SHANI /
+// ENABLE_ARM_SHANI undefined and assumed that was enough. It was not: Core
+// declares and instantiates sha256_sse4::Transform behind a plain
+// `#if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)`
+// architecture guard, independent of any build-config macro. The intent
+// "no hardware paths" was expressed in a macro the code does not consult, so
+// x86 builds silently pulled in a translation unit that was never vendored,
+// and the mistake only surfaced when a new architecture was added.
+//
+// That is the same shape as the failure that cost Coldcard users their funds
+// in July 2026: a build-time guard that tested something adjacent to what the
+// author believed it tested, producing a binary that looked correct. The
+// lesson taken here is to use the switch the code actually reads, and to
+// verify the resulting artifact rather than the intent.
+//
+// One SHA-256 path on every target: fewer conditional branches in the build
+// is fewer places for a selection bug to hide. SHA-256 speed is irrelevant to
+// entropy quality.
+//
+// HAVE_GETCPUID is x86-only and left undefined, which also disables Core's
+// RDRAND/RDSEED seeding. That hardware does not exist on ARM anyway.
 // ---------------------------------------------------------------------------
+
+#define DISABLE_OPTIMIZED_SHA256 1
 
 // ---------------------------------------------------------------------------
 // Client version

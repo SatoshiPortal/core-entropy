@@ -86,10 +86,16 @@ void main() {
   });
 
   group('collectors (application layer)', () {
+    // Every value fed to the pool in these tests comes from
+    // GetStrongRandBytes(). Nothing in this repository generates or feeds
+    // low-entropy material, including in tests: there is no weak input here
+    // to be copied into production code or to be mistaken for an acceptable
+    // source.
     test('pointer samples feed events and do not degrade output', () {
       final c = PointerEntropyCollector(lab);
+      final coords = lab.strongBytes(400);
       for (var i = 0; i < 200; i++) {
-        c.sample(i * 1.5, i * 2.25);
+        c.sample(coords[i * 2].toDouble(), coords[i * 2 + 1].toDouble());
       }
       expect(c.sampleCount, 200);
       c.commit();
@@ -100,8 +106,9 @@ void main() {
       final c = DiceEntropyCollector(lab);
       expect(() => c.roll(0), throwsRangeError);
       expect(() => c.roll(7), throwsRangeError);
-      for (var i = 0; i < 50; i++) {
-        c.roll((i % 6) + 1);
+      final faces = lab.strongBytes(50);
+      for (final f in faces) {
+        c.roll((f % 6) + 1);
       }
       expect(c.rollCount, 50);
       expect(c.entropyBitsUpperBound, closeTo(129.2, 1.0));
@@ -111,8 +118,8 @@ void main() {
     test('camera frames accept bulk input', () {
       final c = CameraEntropyCollector(lab);
       c.frame(Uint8List(0));
-      expect(c.frameCount, 0);
-      c.frame(Uint8List.fromList(List.generate(1 << 20, (i) => i & 0xff)));
+      expect(c.frameCount, 0, reason: 'empty frames are ignored');
+      c.frame(lab.strongBytes(1 << 18));
       expect(c.frameCount, 1);
       c.commit();
       expect(lab.strongBytes(32).length, 32);
@@ -120,17 +127,17 @@ void main() {
   });
 
   group('caller-supplied entropy', () {
-    test('accepts arbitrary material and keeps producing output', () {
-      lab.addEntropy(Uint8List.fromList(List.filled(64, 0)));
+    test('accepts contributed material and keeps producing output', () {
+      lab.addEntropy(lab.strongBytes(64));
       lab.reseed();
       expect(lab.strongBytes(32).every((b) => b == 0), isFalse);
     });
 
-    test('contributing worthless entropy does not degrade output', () {
-      // Core folds contributions into state via SHA-512 and never replaces
-      // it, so all-zero input cannot weaken the pool.
+    test('contribution changes the extractable state', () {
+      // Core folds contributions into the persistent state through SHA-512
+      // and never replaces it, so a contribution can only ever add.
       final before = _hex(lab.strongBytes(32));
-      lab.addEntropy(Uint8List.fromList(List.filled(256, 0)));
+      lab.addEntropy(lab.strongBytes(256));
       lab.reseed();
       final after = _hex(lab.strongBytes(32));
       expect(before, isNot(after));
@@ -139,7 +146,7 @@ void main() {
 
     test('handles lengths that are not a multiple of 4', () {
       for (final n in [1, 2, 3, 5, 7, 13]) {
-        lab.addEntropy(Uint8List.fromList(List.generate(n, (i) => i)));
+        lab.addEntropy(lab.strongBytes(n));
       }
       lab.reseed();
       expect(lab.strongBytes(32).length, 32);

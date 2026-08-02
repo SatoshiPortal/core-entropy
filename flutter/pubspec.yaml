@@ -1,0 +1,22 @@
+name: core_entropy_flutter
+description: Flutter FFI plugin exposing Bitcoin Core's RNG on Android and iOS.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  core_entropy:
+    path: ../dart
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        ffiPlugin: true
+      ios:
+        ffiPlugin: true

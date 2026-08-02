@@ -21,8 +21,10 @@
 
 extern "C" int getentropy(void* buffer, size_t size)
 {
-    // POSIX getentropy(3) caps at 256 bytes and callers rely on that erroring
-    // rather than short-filling. Core only ever asks for 32.
+    // getentropy(2) caps at 256 bytes on the platforms that ship it, and
+    // callers rely on a larger request erroring rather than short-filling.
+    // Matching that contract keeps this a drop-in for the real thing. Core
+    // only ever asks for 32 (NUM_OS_RANDOM_BYTES).
     if (size > 256) {
         errno = EIO;
         return -1;
