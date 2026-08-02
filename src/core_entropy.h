@@ -43,7 +43,22 @@ void core_entropy_get_bytes(uint8_t* out, size_t len);
 //
 // This does NOT block or reseed by itself. Call core_entropy_reseed() when you
 // want the contributed material folded into the extractable state.
+// Bulk material (a camera frame, an accelerometer buffer, a dice string) is
+// SHA-512'd here before being handed to Core, then fed as 16 events. Feeding
+// megabytes four bytes at a time would mean hundreds of thousands of FFI
+// calls; hashing first costs nothing, since SHA-512 preserves min(input
+// entropy, 512 bits) and no realistic sensor input carries more than that.
 void core_entropy_add_entropy(const uint8_t* data, size_t len);
+
+// Contribute a single UI event: one tap, one swipe sample, one die face.
+//
+// Prefer this over core_entropy_add_entropy() for event streams. Core's
+// AddEvent mixes a fresh performance counter alongside each value
+// (random.cpp:451), and that sub-microsecond arrival timing is usually the
+// highest-entropy part of a UI event, far more so than the coordinates.
+// Batching 100 taps into one hashed blob captures 16 timestamps; feeding them
+// one at a time captures 100.
+void core_entropy_add_event(uint32_t event_info);
 
 // Core's RandAddPeriodic(): folds accumulated events, OS entropy, the dynamic
 // environment, and a CPU-bound strengthen loop into the state.

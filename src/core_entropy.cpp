@@ -10,6 +10,8 @@
 #include <random.h>
 #include <span.h>
 #include <util/translation.h>
+#include <crypto/sha512.h>
+#include <support/cleanse.h>
 
 #include <cstddef>
 
@@ -44,14 +46,24 @@ void core_entropy_get_bytes(uint8_t* out, size_t len)
 
 void core_entropy_add_entropy(const uint8_t* data, size_t len)
 {
-    for (size_t off = 0; off < len; off += 4) {
+    if (len == 0) return;
+
+    unsigned char digest[CSHA512::OUTPUT_SIZE];
+    CSHA512().Write(data, len).Finalize(digest);
+
+    for (size_t off = 0; off < sizeof(digest); off += 4) {
         uint32_t word = 0;
-        const size_t n = (len - off) < 4 ? (len - off) : 4;
-        for (size_t i = 0; i < n; i++) {
-            word |= static_cast<uint32_t>(data[off + i]) << (8 * i);
+        for (size_t i = 0; i < 4; i++) {
+            word |= static_cast<uint32_t>(digest[off + i]) << (8 * i);
         }
         RandAddEvent(word);
     }
+    memory_cleanse(digest, sizeof(digest));
+}
+
+void core_entropy_add_event(uint32_t event_info)
+{
+    RandAddEvent(event_info);
 }
 
 void core_entropy_reseed(void)
@@ -71,9 +83,15 @@ const char* core_entropy_os_source(void)
 
 size_t core_entropy_os_block_size(void)
 {
-    // Core's NUM_OS_RANDOM_BYTES is file-static in random.cpp. Its value is
-    // asserted against Core's own header contract in the test suite rather
-    // than duplicated as a magic number here.
+    // Mirrors NUM_OS_RANDOM_BYTES (random.cpp:55), which is file-static and
+    // absent from random.h, so it cannot be read from here. Duplicated, and
+    // it will go stale silently if upstream changes it.
+    //
+    // The staleness is contained rather than detected: kMaxPerCall above is
+    // the value that actually governs chunking, and if Core ever lowered its
+    // limit, ProcRand's `assert(num <= 32)` would abort loudly on the first
+    // call. This accessor is informational only — nothing in the library
+    // branches on it.
     return 32;
 }
 

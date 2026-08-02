@@ -58,22 +58,46 @@ rather than argued from source.
 
 ## Contributing your own entropy
 
-Yes, and it is safe with arbitrary input quality. Core's `RNGState::MixExtract`
+Supported, and safe with arbitrary input quality. Core's `RNGState::MixExtract`
 folds new material into the persistent 32-byte state through SHA-512 and never
 replaces it; `AddEvent` accumulates into a chained SHA-256 folded in at every
 reseed (`core/random.cpp:444-471`). A contribution therefore **cannot weaken
-the pool**, however bad it is. That property is what makes it safe to accept
-dice rolls, camera noise, or touch timings from a user.
+the pool**, however bad it is. That is what makes it safe to accept camera
+frames, touch timings, or dice from a user.
+
+The C ABI exposes exactly two ways in, and nothing that interprets them:
+
+| | Use for | Mechanism |
+|---|---|---|
+| `core_entropy_add_event(uint32)` | one tap, swipe sample, die face | one `RandAddEvent` |
+| `core_entropy_add_entropy(buf, len)` | camera frame, sensor buffer | SHA-512 → 16 `RandAddEvent` |
+
+Prefer `add_event` for streams. Core mixes a fresh performance counter
+alongside every call (`random.cpp:451`), and that sub-microsecond arrival
+timing is usually worth more than the value itself — 100 taps fed one at a
+time capture 100 timestamps; batched into one blob they capture 16.
+
+### Layering
+
+Deciding how a swipe becomes a `uint32` is an application concern, so it lives
+in `dart/lib/collectors.dart`, not in the C++ library. `PointerEntropyCollector`,
+`DiceEntropyCollector`, and `CameraEntropyCollector` are ordinary Dart built on
+the two calls above. The C++ side stays small enough to review.
 
 ```dart
-lab.addEntropy(diceRolls);  // any length, any quality
-lab.reseed();               // fold into extractable state
-final seed = lab.strongBytes(16);
+final pointer = PointerEntropyCollector(rng);
+Listener(onPointerMove: (e) => pointer.sample(e.position.dx, e.position.dy));
+pointer.commit();
+
+final seed = rng.strongBytes(16);
 ```
 
-Caveat: Core's only public input is `RandAddEvent(uint32_t)`, so `len` bytes go
-in as `ceil(len/4)` events with the tail zero-padded. A bulk-mix entry point
-would need a patch to `random.cpp`, which this project does not do.
+**None of it is load-bearing.** The pool is already seeded from the OS CSPRNG
+before any collector runs. Contributions are defence in depth against a
+compromised OS RNG — they are not a source you can put a number on without a
+real min-entropy assessment (NIST SP 800-90B). `DiceEntropyCollector` reports
+an `entropyBitsUpperBound` for progress UI; it is an upper bound on a fair,
+honestly-entered roll, not a measurement.
 
 ## Testing entropy
 
@@ -132,7 +156,7 @@ cd dart && dart pub get
 CORE_ENTROPY_LIB=../build/libcore_entropy.dylib dart test
 ```
 
-Host status: 16/16 C++, 12/12 Dart, 3/3 provenance, 56/56 provenance-verified.
+Host status: 16/16 C++, 15/15 Dart, 3/3 provenance, 56/56 byte-identity.
 
 ## Known gaps
 
@@ -147,3 +171,9 @@ Host status: 16/16 C++, 12/12 Dart, 3/3 provenance, 56/56 provenance-verified.
   Harmless — it only reduces salt, never entropy — but unverified in practice.
 - **Reproducible builds.** Adding a C++ toolchain alongside the existing Rust
   pipeline has not been assessed against the repo's reproducibility work.
+
+## License
+
+MIT. `core/` is unmodified Bitcoin Core, redistributed under its original MIT
+license with copyright retained; everything else is (c) 2026 Satoshi Portal Inc.
+See [LICENSE](LICENSE).

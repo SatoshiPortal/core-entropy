@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:core_entropy/collectors.dart';
 import 'package:core_entropy/core_entropy.dart';
 import 'package:test/test.dart';
 
@@ -82,6 +83,40 @@ void main() {
       }
       expect(seen.length, 8);
     }, timeout: const Timeout(Duration(minutes: 3)));
+  });
+
+  group('collectors (application layer)', () {
+    test('pointer samples feed events and do not degrade output', () {
+      final c = PointerEntropyCollector(lab);
+      for (var i = 0; i < 200; i++) {
+        c.sample(i * 1.5, i * 2.25);
+      }
+      expect(c.sampleCount, 200);
+      c.commit();
+      expect(lab.strongBytes(32).every((b) => b == 0), isFalse);
+    });
+
+    test('dice reject out-of-range faces and bound their own claim', () {
+      final c = DiceEntropyCollector(lab);
+      expect(() => c.roll(0), throwsRangeError);
+      expect(() => c.roll(7), throwsRangeError);
+      for (var i = 0; i < 50; i++) {
+        c.roll((i % 6) + 1);
+      }
+      expect(c.rollCount, 50);
+      expect(c.entropyBitsUpperBound, closeTo(129.2, 1.0));
+      c.commit();
+    });
+
+    test('camera frames accept bulk input', () {
+      final c = CameraEntropyCollector(lab);
+      c.frame(Uint8List(0));
+      expect(c.frameCount, 0);
+      c.frame(Uint8List.fromList(List.generate(1 << 20, (i) => i & 0xff)));
+      expect(c.frameCount, 1);
+      c.commit();
+      expect(lab.strongBytes(32).length, 32);
+    });
   });
 
   group('caller-supplied entropy', () {

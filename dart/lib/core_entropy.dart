@@ -8,6 +8,8 @@ typedef _FillNative = Void Function(Pointer<Uint8>, Size);
 typedef _FillDart = void Function(Pointer<Uint8>, int);
 typedef _AddNative = Void Function(Pointer<Uint8>, Size);
 typedef _AddDart = void Function(Pointer<Uint8>, int);
+typedef _EventNative = Void Function(Uint32);
+typedef _EventDart = void Function(int);
 typedef _VoidNative = Void Function();
 typedef _VoidDart = void Function();
 typedef _IntNative = Int32 Function();
@@ -25,36 +27,52 @@ typedef _SizeDart = int Function();
 /// branch. There is deliberately no error code to check and no exception to
 /// catch — a degraded path would be worse than a crash.
 class CoreEntropy {
-  CoreEntropy._(this._lib)
-      : _getStrong = _lib.lookupFunction<_FillNative, _FillDart>(
+  CoreEntropy._(DynamicLibrary lib)
+      : _getStrong = lib.lookupFunction<_FillNative, _FillDart>(
             'core_entropy_get_strong'),
-        _getBytes = _lib.lookupFunction<_FillNative, _FillDart>(
+        _getBytes = lib.lookupFunction<_FillNative, _FillDart>(
             'core_entropy_get_bytes'),
         _addEntropy =
-            _lib.lookupFunction<_AddNative, _AddDart>('core_entropy_add_entropy'),
-        _reseed = _lib.lookupFunction<_VoidNative, _VoidDart>(
+            lib.lookupFunction<_AddNative, _AddDart>('core_entropy_add_entropy'),
+        _addEvent = lib.lookupFunction<_EventNative, _EventDart>(
+            'core_entropy_add_event'),
+        _reseed = lib.lookupFunction<_VoidNative, _VoidDart>(
             'core_entropy_reseed'),
-        _sanityCheck = _lib.lookupFunction<_IntNative, _IntDart>(
+        _sanityCheck = lib.lookupFunction<_IntNative, _IntDart>(
             'core_entropy_sanity_check'),
-        _osSource = _lib.lookupFunction<_StrNative, _StrDart>(
+        _osSource = lib.lookupFunction<_StrNative, _StrDart>(
             'core_entropy_os_source'),
-        _osBlockSize = _lib.lookupFunction<_SizeNative, _SizeDart>(
+        _osBlockSize = lib.lookupFunction<_SizeNative, _SizeDart>(
             'core_entropy_os_block_size');
 
-  final DynamicLibrary _lib;
   final _FillDart _getStrong;
   final _FillDart _getBytes;
   final _AddDart _addEntropy;
+  final _EventDart _addEvent;
   final _VoidDart _reseed;
   final _IntDart _sanityCheck;
   final _StrDart _osSource;
   final _SizeDart _osBlockSize;
 
   static CoreEntropy? _instance;
+  static String? _instancePath;
 
+  /// Core's RNG state is a process-wide singleton, so this returns the same
+  /// instance for repeated calls. Reopening with a different [path] throws
+  /// rather than silently handing back the first library.
   static CoreEntropy open({String? path}) {
-    if (_instance != null) return _instance!;
     final resolved = path ?? _defaultPath();
+    final existing = _instance;
+    if (existing != null) {
+      if (_instancePath != resolved) {
+        throw StateError(
+          'CoreEntropy already opened from $_instancePath; cannot reopen from '
+          '$resolved. Core\'s RNG state is process-global.',
+        );
+      }
+      return existing;
+    }
+    _instancePath = resolved;
     return _instance = CoreEntropy._(DynamicLibrary.open(resolved));
   }
 
@@ -85,8 +103,9 @@ class CoreEntropy {
   ///
   /// Safe with arbitrary input quality: Core folds contributions into the
   /// persistent state through SHA-512 and never replaces it, so this cannot
-  /// weaken the pool. Goes in as `ceil(length/4)` `RandAddEvent` words.
-  /// Call [reseed] afterwards to fold it into extractable output.
+  /// weaken the pool. Input of any size is SHA-512'd natively and fed to Core
+  /// as 16 `RandAddEvent` words. Call [reseed] afterwards to fold it into
+  /// extractable output.
   void addEntropy(Uint8List data) {
     if (data.isEmpty) return;
     final buf = calloc<Uint8>(data.length);
@@ -97,6 +116,17 @@ class CoreEntropy {
       calloc.free(buf);
     }
   }
+
+  /// Contribute one event, mapping directly onto Core's `RandAddEvent`.
+  ///
+  /// Prefer this over [addEntropy] for streams of small values. Core mixes a
+  /// fresh performance counter alongside each call, so feeding events one at a
+  /// time captures one timestamp each; batching them into [addEntropy] does
+  /// not.
+  ///
+  /// Interpreting UI or sensor input into these calls is deliberately not this
+  /// library's job — see `package:core_entropy/collectors.dart`.
+  void addEvent(int eventInfo) => _addEvent(eventInfo & 0xFFFFFFFF);
 
   /// Core's `RandAddPeriodic()`.
   void reseed() => _reseed();
