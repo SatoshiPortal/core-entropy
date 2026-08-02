@@ -24,22 +24,22 @@ typedef _SizeDart = int Function();
 /// source fails, and the build config admits no `/dev/urandom` fallback
 /// branch. There is deliberately no error code to check and no exception to
 /// catch — a degraded path would be worse than a crash.
-class EntropyLab {
-  EntropyLab._(this._lib)
+class CoreEntropy {
+  CoreEntropy._(this._lib)
       : _getStrong = _lib.lookupFunction<_FillNative, _FillDart>(
-            'entropy_lab_get_strong'),
+            'core_entropy_get_strong'),
         _getBytes = _lib.lookupFunction<_FillNative, _FillDart>(
-            'entropy_lab_get_bytes'),
+            'core_entropy_get_bytes'),
         _addEntropy =
-            _lib.lookupFunction<_AddNative, _AddDart>('entropy_lab_add_entropy'),
+            _lib.lookupFunction<_AddNative, _AddDart>('core_entropy_add_entropy'),
         _reseed = _lib.lookupFunction<_VoidNative, _VoidDart>(
-            'entropy_lab_reseed'),
+            'core_entropy_reseed'),
         _sanityCheck = _lib.lookupFunction<_IntNative, _IntDart>(
-            'entropy_lab_sanity_check'),
+            'core_entropy_sanity_check'),
         _osSource = _lib.lookupFunction<_StrNative, _StrDart>(
-            'entropy_lab_os_source'),
+            'core_entropy_os_source'),
         _osBlockSize = _lib.lookupFunction<_SizeNative, _SizeDart>(
-            'entropy_lab_os_block_size');
+            'core_entropy_os_block_size');
 
   final DynamicLibrary _lib;
   final _FillDart _getStrong;
@@ -50,20 +50,20 @@ class EntropyLab {
   final _StrDart _osSource;
   final _SizeDart _osBlockSize;
 
-  static EntropyLab? _instance;
+  static CoreEntropy? _instance;
 
-  static EntropyLab open({String? path}) {
+  static CoreEntropy open({String? path}) {
     if (_instance != null) return _instance!;
     final resolved = path ?? _defaultPath();
-    return _instance = EntropyLab._(DynamicLibrary.open(resolved));
+    return _instance = CoreEntropy._(DynamicLibrary.open(resolved));
   }
 
   static String _defaultPath() {
-    if (Platform.isMacOS) return 'build/libentropy_lab.dylib';
-    if (Platform.isAndroid) return 'libentropy_lab.so';
-    if (Platform.isLinux) return 'build/libentropy_lab.so';
+    if (Platform.isMacOS) return 'build/libcore_entropy.dylib';
+    if (Platform.isAndroid) return 'libcore_entropy.so';
+    if (Platform.isLinux) return 'build/libcore_entropy.so';
     if (Platform.isIOS) return DynamicLibrary.process().toString();
-    throw UnsupportedError('no entropy_lab build for ${Platform.operatingSystem}');
+    throw UnsupportedError('no core_entropy build for ${Platform.operatingSystem}');
   }
 
   /// The syscall this binary was compiled against, e.g. `getrandom(2)`.

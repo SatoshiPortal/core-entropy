@@ -1,20 +1,20 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:entropy_lab/entropy_lab.dart';
+import 'package:core_entropy/core_entropy.dart';
 import 'package:test/test.dart';
 
 String _hex(Uint8List b) =>
     b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
 
 void main() {
-  final libPath = Platform.environment['ENTROPY_LAB_LIB'] ??
-      '${Directory.current.parent.path}/build/libentropy_lab.dylib';
+  final libPath = Platform.environment['CORE_ENTROPY_LIB'] ??
+      '${Directory.current.parent.path}/build/libcore_entropy.dylib';
 
-  late EntropyLab lab;
+  late CoreEntropy lab;
 
   setUpAll(() {
-    lab = EntropyLab.open(path: libPath);
+    lab = CoreEntropy.open(path: libPath);
   });
 
   group('binding', () {
@@ -74,7 +74,7 @@ void main() {
         final r = Process.runSync(
           Platform.resolvedExecutable,
           ['run', 'test/emit.dart'],
-          environment: {'ENTROPY_LAB_LIB': libPath},
+          environment: {'CORE_ENTROPY_LIB': libPath},
           workingDirectory: Directory.current.path,
         );
         expect(r.exitCode, 0, reason: r.stderr.toString());

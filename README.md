@@ -1,4 +1,4 @@
-# entropy-lab
+# core-entropy
 
 Bitcoin Core's RNG, extracted as a standalone C++ library with Dart FFI
 bindings, configured to **panic rather than fall back**.
@@ -30,8 +30,8 @@ state: **56/56 identical**. The entire non-Core surface is four files:
 |---|---|
 | `shim/bitcoin-build-config.h` | Substitute for Core's build-generated header. **All project policy lives here.** |
 | `shim/bitcoin-build-info.h` | Substitute for Core's git-metadata header. Intentionally empty. |
-| `src/entropy_lab.h` | C ABI declarations |
-| `src/entropy_lab.cpp` | C ABI implementation |
+| `src/core_entropy.h` | C ABI declarations |
+| `src/core_entropy.cpp` | C ABI implementation |
 
 A reviewer needs to read those four files and nothing else.
 
@@ -123,13 +123,13 @@ A build with a reachable fallback exits 0 here.
 ## Build
 
 ```
-make lib      # libentropy_lab.dylib / .so
+make lib      # libcore_entropy.dylib / .so
 make test     # C++ harness, tiers 1-2
 make verify   # byte-identity against upstream v29.0
 ./scripts/provenance_test.sh   # tier 3
 
 cd dart && dart pub get
-ENTROPY_LAB_LIB=../build/libentropy_lab.dylib dart test
+CORE_ENTROPY_LIB=../build/libcore_entropy.dylib dart test
 ```
 
 Host status: 16/16 C++, 12/12 Dart, 3/3 provenance, 56/56 provenance-verified.

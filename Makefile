@@ -28,16 +28,16 @@ CORE_SRC := \
   core/util/syserror.cpp \
   core/util/fs.cpp
 
-OWN_SRC  := src/entropy_lab.cpp
+OWN_SRC  := src/core_entropy.cpp
 SRC      := $(CORE_SRC) $(OWN_SRC)
 OBJ      := $(patsubst %.cpp,build/%.o,$(SRC))
 
 UNAME_S  := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-  SHLIB   := build/libentropy_lab.dylib
+  SHLIB   := build/libcore_entropy.dylib
   LDFLAGS += -dynamiclib -Wl,-dead_strip
 else
-  SHLIB   := build/libentropy_lab.so
+  SHLIB   := build/libcore_entropy.so
   LDFLAGS += -shared -Wl,--gc-sections
 endif
 
@@ -55,7 +55,7 @@ build/%.o: %.cpp
 
 test: $(SHLIB)
 	$(CXX) $(CXXSTD) $(OPT) $(INCLUDES) tests/harness.cpp -o build/harness \
-	  -Lbuild -lentropy_lab -Wl,-rpath,@loader_path
+	  -Lbuild -lcore_entropy -Wl,-rpath,@loader_path
 	./build/harness
 
 verify:

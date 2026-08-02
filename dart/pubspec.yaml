@@ -1,4 +1,4 @@
-name: entropy_lab
+name: core_entropy
 description: Dart FFI bindings over Bitcoin Core v29.0's RNG.
 publish_to: "none"
 version: 0.1.0

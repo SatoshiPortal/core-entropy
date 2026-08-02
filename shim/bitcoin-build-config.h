@@ -23,15 +23,15 @@
 
 #if defined(__ANDROID__) || defined(__linux__)
   #define HAVE_GETRANDOM 1
-  #define ENTROPY_LAB_OS_SOURCE "getrandom(2)"
-  #define ENTROPY_LAB_SOURCE_SELECTED 1
+  #define CORE_ENTROPY_OS_SOURCE "getrandom(2)"
+  #define CORE_ENTROPY_SOURCE_SELECTED 1
 #elif defined(__APPLE__)
   #define HAVE_GETENTROPY_RAND 1
   #define HAVE_SYSCTL 1
-  #define ENTROPY_LAB_OS_SOURCE "getentropy(2)"
-  #define ENTROPY_LAB_SOURCE_SELECTED 1
+  #define CORE_ENTROPY_OS_SOURCE "getentropy(2)"
+  #define CORE_ENTROPY_SOURCE_SELECTED 1
 #else
-  #define ENTROPY_LAB_SOURCE_SELECTED 0
+  #define CORE_ENTROPY_SOURCE_SELECTED 0
 #endif
 
 // ---------------------------------------------------------------------------
@@ -97,13 +97,13 @@
 
 // util/check.cpp embeds these in its assertion-failure message;
 // clientversion.cpp uses the rest to build its version strings.
-#define CLIENT_NAME "entropy-lab"
-#define CLIENT_BUGREPORT "https://github.com/SatoshiPortal/entropy-lab/issues"
-#define CLIENT_URL "https://github.com/SatoshiPortal/entropy-lab"
+#define CLIENT_NAME "core-entropy"
+#define CLIENT_BUGREPORT "https://github.com/SatoshiPortal/core-entropy/issues"
+#define CLIENT_URL "https://github.com/SatoshiPortal/core-entropy"
 #define COPYRIGHT_HOLDERS "The %s developers"
 #define COPYRIGHT_HOLDERS_SUBSTITUTION "Bitcoin Core"
 
-#if !ENTROPY_LAB_SOURCE_SELECTED
+#if !CORE_ENTROPY_SOURCE_SELECTED
   #error "No OS entropy source selected. Core's GetOSRand() would fall through to its /dev/urandom #else branch, which this project does not permit. Add a platform branch above."
 #endif
 

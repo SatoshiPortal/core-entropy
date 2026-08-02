@@ -17,7 +17,7 @@
 //                              that failure is fatal. The only tier that tests
 //                              what a public security claim actually claims.
 
-#include "entropy_lab.h"
+#include "core_entropy.h"
 
 #include <crypto/chacha20.h>
 #include <span.h>
@@ -131,7 +131,7 @@ void run_tier2(const char* label, const std::vector<uint8_t>& buf, bool expect_p
 std::vector<uint8_t> draw(size_t n)
 {
     std::vector<uint8_t> v(n);
-    entropy_lab_get_strong(v.data(), v.size());
+    core_entropy_get_strong(v.data(), v.size());
     return v;
 }
 
@@ -152,19 +152,19 @@ int main(int argc, char** argv)
     // Cross-process mode: emit one draw as hex and exit.
     if (argc > 1 && std::strcmp(argv[1], "--emit") == 0) {
         uint8_t b[32];
-        entropy_lab_get_strong(b, sizeof b);
+        core_entropy_get_strong(b, sizeof b);
         for (uint8_t x : b) std::printf("%02x", x);
         return 0;
     }
 
-    std::printf("\nentropy-lab :: Bitcoin Core v29.0 RNG\n");
-    std::printf("OS source compiled in : %s\n", entropy_lab_os_source());
-    std::printf("GetOSRand block size  : %zu bytes\n\n", entropy_lab_os_block_size());
+    std::printf("\ncore-entropy :: Bitcoin Core v29.0 RNG\n");
+    std::printf("OS source compiled in : %s\n", core_entropy_os_source());
+    std::printf("GetOSRand block size  : %zu bytes\n\n", core_entropy_os_block_size());
 
     // -----------------------------------------------------------------------
     std::printf("Tier 1 - catastrophic failure detection\n");
 
-    report(1, "Core Random_SanityCheck()", entropy_lab_sanity_check() == 1,
+    report(1, "Core Random_SanityCheck()", core_entropy_sanity_check() == 1,
            "Core's own startup self-test");
 
     {
@@ -179,7 +179,7 @@ int main(int argc, char** argv)
         // Sentinel fill: a source that writes fewer bytes than promised leaves
         // recognisable filler behind. This is the shape of a short-read bug.
         std::vector<uint8_t> v(256, 0xAA);
-        entropy_lab_get_strong(v.data(), v.size());
+        core_entropy_get_strong(v.data(), v.size());
         size_t untouched = 0;
         for (uint8_t x : v) if (x == 0xAA) untouched++;
         char d[128];
@@ -219,7 +219,7 @@ int main(int argc, char** argv)
 
     // -----------------------------------------------------------------------
     std::printf("\nTier 2 - statistical (see note below)\n");
-    run_tier2("core", []{ std::vector<uint8_t> v(1 << 18); entropy_lab_get_bytes(v.data(), v.size()); return v; }(), true);
+    run_tier2("core", []{ std::vector<uint8_t> v(1 << 18); core_entropy_get_bytes(v.data(), v.size()); return v; }(), true);
 
     std::printf("\nTier 2 - same battery, ChaCha20 with an all-zero key\n");
     run_tier2("fixedkey", broken_rng(1 << 18), true);

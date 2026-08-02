@@ -37,7 +37,7 @@ else
 fi
 
 printf '  [T3] %-38s ' "no /dev/urandom string in binary"
-if strings build/libentropy_lab.* 2>/dev/null | grep -q '/dev/urandom'; then
+if strings build/libcore_entropy.* 2>/dev/null | grep -q '/dev/urandom'; then
   echo "WARN   GetDevURandom survived dead-stripping (unreachable, but present)"
 else
   echo "PASS   GetDevURandom stripped from the shared library"
